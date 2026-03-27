@@ -1,4 +1,4 @@
-name: Build Mario Characters API
+name: Build and Deploy Mario Characters API
 
 on:
   push:
@@ -8,32 +8,59 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     env:
       PROJECT_PATH: MarioCharactersAPI/MarioCharactersAPI.csproj
 
     steps:
+      # Checkout code
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Setup .NET
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 8.0.x
 
+      # Restore dependencies
       - name: Restore
         run: dotnet restore "$PROJECT_PATH"
 
-      - name: Build with dotnet
+      # Build
+      - name: Build
         run: dotnet build "$PROJECT_PATH" --configuration Release --no-restore
 
+      # Publish
       - name: Publish
         run: dotnet publish "$PROJECT_PATH" --configuration Release --no-build --output ./publish
 
-      - name: Upload publish artifact
+      # Upload artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mario-characters-api
+          name: app
           path: publish
+
+      # Download artifact (for deploy)
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app
+
+      # Login to Azure
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_7C044BF5BDFA4586A378842793D664DC }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B9A692449AA14E45A0F5705E344F2160 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_99E76ADEBC8F46B398A9A14FECF5A26A }}
+
+      # Deploy
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: mario-characters-api
+          package: .
